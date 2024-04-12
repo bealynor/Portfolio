@@ -1,18 +1,13 @@
 ---
-title: "Assesssment 4"
-author: Bea Lynor Barros 47758295
-        Beatrice Sophia Pamittan 47558865
-        Hsiao Han Huang 47695471
-        Rachel Angelo 47833483
-output: word_document
-date: "2023-11-03"
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
 
 ```{r, package, echo=FALSE}
 #Loading the packages
@@ -26,7 +21,6 @@ install.packages("caret")
 library(caret)
 
 ```
-
 
 ```{r, data, echo=FALSE}
 
@@ -45,8 +39,6 @@ Nov_Sales = read.csv("11_Sales_Nov_2019.csv", na.strings = c("NaN", "NA"))
 Dec_Sales = read.csv("12_Sales_Dec_2019.csv", na.strings = c("NaN", "NA"))
 ```
 
-
-
 ```{r}
 
 # Combine monthly Sales files into one data frame
@@ -54,9 +46,7 @@ combined_sales <- rbind(Jan_Sales, Feb_Sales, Mar_Sales, Apr_Sales, May_Sales, J
 
 ```
 
-
-## Data Cleaning and Wrangling  
-
+## Data Cleaning and Wrangling
 
 **Combined Sales**
 
@@ -68,7 +58,6 @@ head(combined_sales)
 combined_sales <- subset(combined_sales, Order.ID != "" & Order.ID != "Order ID")
 
 ```
-
 
 ```{r}
 
@@ -100,7 +89,6 @@ unique(combined_sales$Product)
 
 ```
 
-
 ```{r}
 
 #Quantity Ordered
@@ -113,7 +101,6 @@ combined_sales <- subset(combined_sales, Quantity.Ordered != "0")
 unique(combined_sales$Quantity.Ordered)
 
 ```
-
 
 ```{r}
 #Price.Each
@@ -129,7 +116,6 @@ unique(combined_sales$Price.Each)
 
 ```
 
-
 ```{r}
 # Price X Quantity
 
@@ -139,7 +125,6 @@ combined_sales$Total.Price <- combined_sales$Quantity.Ordered * combined_sales$P
 unique(combined_sales$Total.Price)
 
 ```
-
 
 ```{r}
 
@@ -194,7 +179,6 @@ unique(combined_sales$Hour)
 
 ```
 
-
 ```{r}
 
 #Purchase Address
@@ -241,7 +225,7 @@ year_with_max_sales <- salesperyear$year[which.max(salesperyear$total_price_per_
 # Print the result
 cat("Year with maximum sales:", year_with_max_sales, "\n")
 
-``` 
+```
 
 ```{r}
 # 2b. How much was earned in the best Year of sales?
@@ -252,7 +236,7 @@ best_year_sales <- salesperyear$total_price_per_year[which.max(salesperyear$tota
 # Print the result with two decimal places
 cat("Revenue earned in best year of sales:", sprintf("%.2f", best_year_sales), "\n")
 
-``` 
+```
 
 ```{r}
 # 2c. Which was the best month for sales?
@@ -265,7 +249,7 @@ month_with_max_sales <- salespermonth$month[which.max(salespermonth$total_sales_
 
 # Print the result
 cat("Month with maximum sales:", month_with_max_sales, "\n")
-``` 
+```
 
 ```{r}
 # 2d. How much was earned in the best month of sales?
@@ -276,7 +260,7 @@ best_month_sales <- salespermonth$total_sales_per_month[which.max(salespermonth$
 # Print the result with two decimal places
 cat("Revenue earned in best month of sales:", sprintf("%.2f", best_month_sales), "\n")
 
-``` 
+```
 
 ```{r}
 # 2e. Which City had the most sales?
@@ -289,7 +273,7 @@ city_with_max_sales <- salespercity$City[which.max(salespercity$Sales)]
 
 # Print the result
 cat("City with maximum sales:", city_with_max_sales, "\n")
-``` 
+```
 
 ```{r}
 # 2f. To maximise the likelihood of customers buying a product, what time should Dibs business be displaying advertisements?
@@ -305,7 +289,7 @@ hour_with_max_orders <- salesperhour$Hour[which.max(salesperhour$NoOfOrders)]
 # Print the result
 cat("Hour with maximum sales:", hour_with_max_sales, "\n", "Hour with maximum orders:", hour_with_max_orders, "\n")
 
-``` 
+```
 
 ```{r}
 # 2g. Which products are most often sold together?
@@ -333,7 +317,7 @@ most_frequent_combination <- product_combinations %>%
 # Print the result
 cat("The most frequently bought combination is:", most_frequent_combination$ProductList, "\n")
 
-``` 
+```
 
 ```{r}
 # 2h. Overall which product sold the most and why do you think it has sold the most?
@@ -348,7 +332,7 @@ prod_with_most_sales <-
 # Print the result
 cat("The product which sold the most is:", prod_with_most_sales, "\n")
 
-``` 
+```
 
 ```{r}
 # 2i. What is the average item qty per order?
@@ -362,12 +346,9 @@ avgorderqty <- mean(avgqtyperorder$Avg.Quantity)
 
 # Print the result
 cat("The average order quantity is:", avgorderqty, "\n")
-``` 
-
-
+```
 
 #Task 3 Visualization
-
 
 ***Monthly Sales Trend vs. Average Monthly Sales***
 
@@ -399,7 +380,6 @@ average_monthly_sales <- mean(monthly_sales_2019$MonthlyTotalSales)
 #check result
 average_monthly_sales
 ```
-
 
 ```{r}
 
@@ -523,6 +503,7 @@ monthly_sales_by_state <- combined_sales %>%
 #check result
 monthly_sales_by_state
 ```
+
 ```{r}
 
 
@@ -569,7 +550,6 @@ print(plot_MonthlySalesTrend_state)
 
 
 ```
-
 
 ```{r}
 
@@ -699,7 +679,6 @@ print(plot_SalesCityTrend)
 
 ```
 
-
 ```{r}
 #Group total sales by city
 total_sales_by_city <- combined_sales %>%
@@ -710,7 +689,6 @@ total_sales_by_city <- combined_sales %>%
 # Check dataframe
 total_sales_by_city
 ```
-
 
 ```{r}
 # Create the bar chart visualizing total sales per city
@@ -838,9 +816,7 @@ print(plot_OrderTrend)
 
 ```
 
-
 ***Daily order trend vs daily average order***
-
 
 ```{r}
 # Group sales by Date and count the number of Order.ID entries for each combination
@@ -851,6 +827,7 @@ order_daily <- combined_sales %>%
 
 order_daily
 ```
+
 ```{r}
 
 # Create a line graph to visualize daily order trends
@@ -1094,7 +1071,6 @@ plot_HourlyTrend
 
 ```
 
-
 ```{r, echo=FALSE}
 
 #We will use linear regression to predict the total sales with hour, day of week, and month.
@@ -1192,8 +1168,6 @@ summary(model_lm)
 
 ```
 
-
-
 ```{r}
 # Load necessary libraries
 library(ggpubr)
@@ -1249,7 +1223,6 @@ ggplot(data = data.frame(Residuals_rpart = residuals_rpart), aes(x = Residuals_r
   labs(title = "Decision Tree Residual Plot",subtitle = "rpart(total_sales ~ Num_City+Day+WeekDay)", x = "Residuals", y = "Frequency")
 ```
 
-
 ```{r}
 # Scatter plot of actual vs. predicted values
 # the red line representing the line of perfect predictions (y = x).
@@ -1270,4 +1243,3 @@ cat("Root Mean Squared Error (RMSE) for Decision Tree model:", rmse_rpart, "\n")
 ```{r}
 cat("R-squared (R2)for Decision Tree model:", r_squared_rpart, "\n")
 ```
-
