@@ -1,0 +1,1273 @@
+---
+title: "Assesssment 4"
+author: Bea Lynor Barros 47758295
+        Beatrice Sophia Pamittan 47558865
+        Hsiao Han Huang 47695471
+        Rachel Angelo 47833483
+output: word_document
+date: "2023-11-03"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, package, echo=FALSE}
+#Loading the packages
+suppressMessages(library(tidyverse))
+suppressWarnings(library(tidyverse))
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+install.packages("caret")
+library(caret)
+
+```
+
+
+```{r, data, echo=FALSE}
+
+#Loading the data
+Jan_Sales = read.csv("01_Sales_Jan_2019.csv", na.strings = c("NaN", "NA"))
+Feb_Sales = read.csv("02_Sales_Feb_2019.csv", na.strings = c("NaN", "NA"))
+Mar_Sales = read.csv("03_Sales_Mar_2019.csv", na.strings = c("NaN", "NA"))
+Apr_Sales = read.csv("04_Sales_Apr_2019.csv", na.strings = c("NaN", "NA"))
+May_Sales = read.csv("05_Sales_May_2019.csv", na.strings = c("NaN", "NA"))
+Jun_Sales = read.csv("06_Sales_Jun_2019.csv", na.strings = c("NaN", "NA"))
+Jul_Sales = read.csv("07_Sales_Jul_2019.csv", na.strings = c("NaN", "NA"))
+Aug_Sales = read.csv("08_Sales_Aug_2019.csv", na.strings = c("NaN", "NA"))
+Sep_Sales = read.csv("09_Sales_Sep_2019.csv", na.strings = c("NaN", "NA"))
+Oct_Sales = read.csv("10_Sales_Oct_2019.csv", na.strings = c("NaN", "NA"))
+Nov_Sales = read.csv("11_Sales_Nov_2019.csv", na.strings = c("NaN", "NA"))
+Dec_Sales = read.csv("12_Sales_Dec_2019.csv", na.strings = c("NaN", "NA"))
+```
+
+
+
+```{r}
+
+# Combine monthly Sales files into one data frame
+combined_sales <- rbind(Jan_Sales, Feb_Sales, Mar_Sales, Apr_Sales, May_Sales, Jun_Sales, Jul_Sales, Aug_Sales, Sep_Sales, Oct_Sales, Nov_Sales, Dec_Sales)
+
+```
+
+
+## Data Cleaning and Wrangling  
+
+
+**Combined Sales**
+
+```{r}
+
+head(combined_sales)
+
+#OrderID
+combined_sales <- subset(combined_sales, Order.ID != "" & Order.ID != "Order ID")
+
+```
+
+
+```{r}
+
+#Product
+unique(combined_sales$Product)
+
+# Replace "GooOgle Phone" with "Google Phone"
+combined_sales$Product[combined_sales$Product == "Goo0gle Phone"] <- "Google Phone"
+
+# Replace "Wired Headphoness" with "Wired Headphones"
+combined_sales$Product[combined_sales$Product == "Wired Headphoness"] <- "Wired Headphones"
+
+# Replace "AAA Batteries (4pack)" with "AAA Batteries (4-pack)"
+combined_sales$Product[combined_sales$Product == "AAA Batteries (4pack)"] <- "AAA Batteries (4-pack)"
+
+# Replace "USBC Charging Cable" with "USB-C Charging Cable"
+combined_sales$Product[combined_sales$Product == "USBC Charging Cable"] <- "USB-C Charging Cable"
+
+# Replace "iPhone" with "IPhone"
+combined_sales$Product[combined_sales$Product == "iPhone"] <- "IPhone"
+
+# Replace "LightCharging Cable" with "Lightning Charging Cable"
+combined_sales$Product[combined_sales$Product == "LightCharging Cable"] <- "Lightning Charging Cable"
+
+# Remove rows with error in the "Product" column
+combined_sales <- subset(combined_sales, Product != "##system error##" & Product != "### syste error###" & Product != "Fault error")
+
+unique(combined_sales$Product)
+
+```
+
+
+```{r}
+
+#Quantity Ordered
+unique(combined_sales$Quantity.Ordered)
+
+combined_sales$Quantity.Ordered <- as.numeric(combined_sales$Quantity.Ordered)
+
+combined_sales <- subset(combined_sales, Quantity.Ordered != "0")
+
+unique(combined_sales$Quantity.Ordered)
+
+```
+
+
+```{r}
+#Price.Each
+unique(combined_sales$Price.Each)
+
+# Remove non-numeric characters (including '$') and convert the entire column to numeric
+combined_sales$Price.Each <- as.numeric(gsub("[^0-9.]", "", combined_sales$Price.Each))
+
+# Format the "Price.Each" column to have two decimal places
+combined_sales$Price.Each <- round(combined_sales$Price.Each, 2)
+
+unique(combined_sales$Price.Each)
+
+```
+
+
+```{r}
+# Price X Quantity
+
+# Multiply Quantity Ordered by Price.Each and create a new column "Total Price"
+combined_sales$Total.Price <- combined_sales$Quantity.Ordered * combined_sales$Price.Each
+
+unique(combined_sales$Total.Price)
+
+```
+
+
+```{r}
+
+#Order.Date
+combined_sales <- combined_sales %>%
+  mutate(
+    # Pad single-digit days with a leading zero
+    Order.Date = str_replace(Order.Date, "^1/", "01/"),
+    
+    # Add "20" to two-digit years
+    Order.Date = str_replace(Order.Date, " (\\d{2} \\d{2}:\\d{2})", " 20\\1"),
+    
+    # Extract date and time separately
+    Date = as.Date(strptime(Order.Date, format = "%m/%d/%Y %H:%M", tz = "UTC")),
+    Time = format(strptime(Order.Date, format = "%m/%d/%Y %H:%M", tz = "UTC"), "%H:%M:%S")
+  ) %>%
+  mutate(
+    # Extract the year from the Date column
+    Year = format(Date, "%Y"),
+    
+    # Replace the Year column with "2019" where it's "0019"
+    Year = ifelse(Year == "0019", "2019", Year),
+    
+    # Replace the Year column with "2019" where it's "0028"
+    Year = ifelse(Year == "0028", "2019", Year),
+    
+    # Replace the Year column with "2019" where it's "0001"
+    Year = ifelse(Year == "0001", "2019", Year),
+    
+    # Combine Year, Month, and Day back into Date
+    Date = as.Date(paste(Year, format(Date, "%m-%d"), sep = "-"))
+  )
+
+# Extract the month and store it in a new column "Month"
+combined_sales$Month <- format(combined_sales$Date, format = "%B")
+
+# Extract the day and store it in a new column "Day"
+combined_sales$Day <- format(combined_sales$Date, format = "%d")
+
+# Extract the day of the week and store it in a new column "DayOfWeek"
+combined_sales$DayOfWeek <- format(combined_sales$Date, format = "%A")
+
+# Extract the hour from the "Time" column and format it with "00" for minutes and seconds
+combined_sales$Hour <- paste0(substring(combined_sales$Time, 1, 2), ":00")
+
+
+unique(combined_sales$Month)
+unique(combined_sales$Year)
+unique(combined_sales$Day)
+unique(combined_sales$DayOfWeek)
+unique(combined_sales$Hour)
+
+```
+
+
+```{r}
+
+#Purchase Address
+
+# Assuming the state is the last part of the address
+combined_sales$State <- sub('.*,\\s*(\\w{2})\\s*\\d{5}', '\\1', combined_sales$Purchase.Address)
+
+# Create a mapping between state abbreviations and state names
+state_mapping <- c("MA" = "Massachusetts", "OR" = "Oregon", "CA" = "California", "TX" = "Texas", "GA" = "Georgia", "WA" = "Washington", "NY" = "New York", "ME" = "Maine")
+
+# Replace state abbreviations with state names
+combined_sales$State <- state_mapping[combined_sales$State]
+
+unique(combined_sales$State)
+
+# Extract the city from the "Purchase Address" column
+combined_sales$City <- sub('.*,\\s(.*?),\\s\\w{2}\\s\\d{5}', '\\1', combined_sales$Purchase.Address)
+
+# Replace "Las Angeles" with "Los Angeles"
+combined_sales$City[combined_sales$City == "Las Angeles"] <- "Los Angeles"
+
+# Replace "SanFrancisco" with "San Francisco"
+combined_sales$City[combined_sales$City == "SanFrancisco"] <- "San Francisco"
+    
+# Rename the two Portlands to distinguish between Maine and Oregon
+combined_sales$City[combined_sales$City == "Portland" & combined_sales$State == "Maine"] <- "PortlandM"
+combined_sales$City[combined_sales$City == "Portland" & combined_sales$State == "Oregon"] <- "PortlandO"
+
+unique(combined_sales$City)
+
+```
+
+#Task 2
+
+```{r}
+# 2a. Which was the best year for sales?
+salesperyear <- combined_sales %>%
+  group_by(year = combined_sales$Year) %>%
+  summarize(total_price_per_year = sum(Total.Price))
+
+# Find the year with the maximum sales
+year_with_max_sales <- salesperyear$year[which.max(salesperyear$total_price_per_year)]
+
+# Print the result
+cat("Year with maximum sales:", year_with_max_sales, "\n")
+
+``` 
+
+```{r}
+# 2b. How much was earned in the best Year of sales?
+
+# Find the maximum revenue
+best_year_sales <- salesperyear$total_price_per_year[which.max(salesperyear$total_price_per_year)]
+
+# Print the result with two decimal places
+cat("Revenue earned in best year of sales:", sprintf("%.2f", best_year_sales), "\n")
+
+``` 
+
+```{r}
+# 2c. Which was the best month for sales?
+salespermonth <- combined_sales %>%
+  group_by(month = combined_sales$Month) %>%
+  summarize(total_sales_per_month = sum(Total.Price))
+
+# Find the month with the maximum sales
+month_with_max_sales <- salespermonth$month[which.max(salespermonth$total_sales_per_month)]
+
+# Print the result
+cat("Month with maximum sales:", month_with_max_sales, "\n")
+``` 
+
+```{r}
+# 2d. How much was earned in the best month of sales?
+
+# Find the maximum revenue
+best_month_sales <- salespermonth$total_sales_per_month[which.max(salespermonth$total_sales_per_month)]
+
+# Print the result with two decimal places
+cat("Revenue earned in best month of sales:", sprintf("%.2f", best_month_sales), "\n")
+
+``` 
+
+```{r}
+# 2e. Which City had the most sales?
+salespercity <- combined_sales %>%
+  group_by(City = combined_sales$City) %>%
+  summarize(Sales = sum(Total.Price))
+
+# Find the city with the maximum sales
+city_with_max_sales <- salespercity$City[which.max(salespercity$Sales)]
+
+# Print the result
+cat("City with maximum sales:", city_with_max_sales, "\n")
+``` 
+
+```{r}
+# 2f. To maximise the likelihood of customers buying a product, what time should Dibs business be displaying advertisements?
+
+salesperhour <- combined_sales %>%
+  group_by(Hour) %>%
+  summarize(NoOfOrders = n(), Sales = round(sum(Total.Price),2))
+
+# Find the hour with the maximum orders
+hour_with_max_sales <- salesperhour$Hour[which.max(salesperhour$Sales)]
+hour_with_max_orders <- salesperhour$Hour[which.max(salesperhour$NoOfOrders)]
+
+# Print the result
+cat("Hour with maximum sales:", hour_with_max_sales, "\n", "Hour with maximum orders:", hour_with_max_orders, "\n")
+
+``` 
+
+```{r}
+# 2g. Which products are most often sold together?
+multipleproductorder <- combined_sales %>%
+  group_by(Order.ID) %>%
+  filter(n() > 1 ) %>%
+  select(Order.ID, Product, Quantity.Ordered)
+
+# Group by Order.ID and create a list of products for each order
+order_groups <- multipleproductorder %>%
+  group_by(Order.ID) %>%
+  summarize(ProductList = toString(Product))
+
+# Calculate combinations of products that are sold together
+product_combinations <- order_groups %>%
+  unnest(ProductList) %>%
+  group_by(ProductList) %>%
+  summarise(Frequency = n()) %>%
+  arrange(desc(Frequency))
+
+# Find the combination with the highest frequency
+most_frequent_combination <- product_combinations %>% 
+  top_n(1, wt = Frequency)
+
+# Print the result
+cat("The most frequently bought combination is:", most_frequent_combination$ProductList, "\n")
+
+``` 
+
+```{r}
+# 2h. Overall which product sold the most and why do you think it has sold the most?
+qtysoldperproduct <- combined_sales %>%
+  group_by(Product) %>%
+  summarize(TotalSold = sum(Quantity.Ordered))
+
+# Find the product that sold the most
+prod_with_most_sales <-
+  qtysoldperproduct$Product[which.max(qtysoldperproduct$TotalSold)]
+
+# Print the result
+cat("The product which sold the most is:", prod_with_most_sales, "\n")
+
+``` 
+
+```{r}
+# 2i. What is the average item qty per order?
+# Average item quantity per order
+avgqtyperorder <- combined_sales %>%
+  group_by(Order.ID) %>% 
+  summarize(Avg.Quantity = mean(Quantity.Ordered))
+
+# Find the average item quantity per order
+avgorderqty <- mean(avgqtyperorder$Avg.Quantity)
+
+# Print the result
+cat("The average order quantity is:", avgorderqty, "\n")
+``` 
+
+
+
+#Task 3 Visualization
+
+
+***Monthly Sales Trend vs. Average Monthly Sales***
+
+```{r}
+# Sort by Date column in ascending order to organize time
+combined_sales <- combined_sales[order(combined_sales$Date, combined_sales$Time), ]
+
+
+#group sales by month and calculate total revenue
+monthly_sales_2019 <- combined_sales %>%
+  filter(Year %in% c(2019)) %>%
+  group_by(Month_Year = format(Date, "%Y-%B")) %>%
+  summarize(MonthlyTotalSales = sum(Total.Price)) %>%
+  arrange(as.Date(paste0("01-", Month_Year), format = "%d-%Y-%B"))
+
+# Calculate the monthly moving average revenue over a window of 3 months starting from March
+monthly_sales_2019 <- monthly_sales_2019 %>%
+  mutate(MonthMovingAverage = zoo::rollmean(MonthlyTotalSales, k = 3, align = "right", fill = NA))
+
+
+# Check the resulting data frame
+monthly_sales_2019
+```
+
+```{r}
+# Compute average monthly sales
+average_monthly_sales <- mean(monthly_sales_2019$MonthlyTotalSales)
+
+#check result
+average_monthly_sales
+```
+
+
+```{r}
+
+# Create a ggplot for the monthly sales trend
+plot_MonthlySalesTrend <- ggplot(monthly_sales_2019, aes(x = as.Date(paste0("01-", Month_Year), format = "%d-%Y-%B"), y = MonthlyTotalSales)) +
+  
+  # Add the main monthly sales line with points
+  geom_line(aes(color = "Monthly Sales"), linewidth = 1, linetype = "solid") +
+  geom_point(size = 1.5, color = "blue") +
+  
+  # Add a line for the moving average
+  geom_line(aes(x = as.Date(paste0("01-", Month_Year), format = "%d-%Y-%B"), y = MonthMovingAverage, color = "Moving Average"), linewidth = 0.5, linetype = "solid") +  
+  
+  # Add a horizontal line for the average monthly sales
+  geom_hline(yintercept = average_monthly_sales, linetype = "dashed", color = "red", linewidth = 0.5) + 
+  
+  # Annotate the average monthly sales
+  geom_text(aes(x = as.Date(paste0("01-", Month_Year[3]), format = "%d-%Y-%B"), y = average_monthly_sales, label = "Average Monthly Sales"), 
+            hjust = 1.2, vjust = -1, size = 2, color = "red")+
+  
+  # Set the plot labels and title
+  labs(
+    title = "2019 Monthly Sales vs. Average Monthly Sales",
+    x = "Month",
+    y = "Total Sales",
+    color = "Legend",
+    caption = paste("Monthly Avg Sales:", scales::comma(average_monthly_sales))
+  ) +
+  
+  # Define custom colors for the lines
+  scale_color_manual(values = c("Monthly Sales" = "blue", "Moving Average" = "magenta")) +
+  
+  # Use a minimal theme for the plot
+  theme_minimal() +
+  
+  # Format the y-axis with breaks and labels, and set limits
+  scale_y_continuous(breaks = seq(0, 5000000, by = 1000000), labels = scales::comma, limits = c(0, 5000000)) +
+  
+  # Format the x-axis for dates
+  scale_x_date(date_labels = "%Y-%B", date_breaks = "1 month") +
+  
+  # Adjust the angle and position of the x-axis text, title, and legend
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1), 
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold"),
+    legend.position = "top"
+  )
+
+# Print the result
+print(plot_MonthlySalesTrend)
+
+
+
+
+```
+
+***Sales by State***
+
+```{r}
+#Group total sales by state in 2019
+total_sales_by_state <- combined_sales %>%
+  filter(Year %in% c(2019)) %>%
+  group_by(State) %>%
+  summarize(TotalSales = sum(Total.Price)) %>%
+  arrange(desc(TotalSales))
+
+# Check result
+total_sales_by_state
+```
+
+```{r}
+
+# Create a ggplot for the total sales per state
+plot_SalesPerState <- ggplot(total_sales_by_state, aes(x = reorder(State, -TotalSales), y = TotalSales, fill = State)) +
+  
+  # Add bars to represent total sales
+  geom_bar(stat = "identity") +
+  
+  # Add labels above the bars
+  geom_text(
+    aes(label = scales::comma(TotalSales), y = TotalSales + 100000), 
+    size = 2.7, 
+    vjust = -0.5
+  ) +
+  
+  # Set titles and axis labels
+  labs(
+    title = "Total Sales per State",
+    x = "State",
+    y = "Total Sales"
+  ) +
+  
+  # Format the y-axis with commas for the sales figures and add some expansion for the limits
+  scale_y_continuous(labels = scales::comma, expand = c(0.1, 0.1)) +
+  
+  # Use a minimal theme for a clean look
+  theme_minimal() +
+  
+  # Adjust the theme for axis text and title
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    plot.title = element_text(hjust = 0.5, face = "bold") 
+  )
+
+# Print the plot
+print(plot_SalesPerState)
+
+```
+
+```{r}
+#Plot the 2019 sales trend of all states
+
+#Group sales by state
+monthly_sales_by_state <- combined_sales %>%
+  filter(Year %in% c(2019)) %>%
+  mutate(Month = format(Date, "%Y-%B")) %>%
+  group_by(State, Month) %>%
+  summarize(TotalSales = sum(Total.Price)) %>%
+  arrange(as.Date(paste0("01-", Month), format = "%d-%Y-%B"))
+
+#check result
+monthly_sales_by_state
+```
+```{r}
+
+
+# Plot the line graph for 2019 monthly sales trend by state
+plot_MonthlySalesTrend_state <- ggplot(monthly_sales_by_state, aes(x = as.Date(paste0("01-", Month), format = "%d-%Y-%B"), y = TotalSales, color = State)) +
+  # Add lines and points for each state
+  geom_line(size = 0.5) +
+  geom_point(size = 1) +
+  
+  # Set titles and axis labels
+  labs(
+    title = "2019 Monthly Sales Trend by State",
+    x = "Month",
+    y = "Total Sales",
+    color = "State"
+  ) +
+  
+  # Format the x-axis for dates with custom breaks and labels
+  scale_x_date(
+    date_labels = "%Y-%B", 
+    date_breaks = "1 month"
+  ) +
+  
+  # Apply a minimal theme for a clean look
+  theme_minimal() +
+  
+  # Adjust the legend and text for better readability and aesthetics
+  theme(
+    legend.position = "top",
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  ) +
+  
+  # Format the y-axis with custom labels, expansion, limits, and breaks
+  scale_y_continuous(
+    labels = comma,
+    expand = expansion(mult = c(0.05, 0.1)),
+    limits = c(0, 1900000),
+    breaks = seq(0, 2000000, by = 150000)
+  )
+
+# Print the result
+print(plot_MonthlySalesTrend_state)
+
+
+```
+
+
+```{r}
+
+#plot a pie graph to see % share of sales of each state
+
+pie_sales_2019 <- combined_sales %>%
+  filter(Year %in% c(2019))%>%
+  group_by(State) %>%
+  summarize(Total_Sales = sum(Total.Price)) %>%
+  mutate(Percentage = sprintf("%.2f%%", (Total_Sales / sum(Total_Sales)) * 100)) %>%
+  mutate(Percentage = as.numeric(gsub("%", "", Percentage))) %>%
+  arrange(desc(Percentage))
+
+# View the result
+print(pie_sales_2019)
+```
+
+```{r}
+
+# Create the pie chart using the prepared sales data from 2019
+plot_PieSales <- ggplot(pie_sales_2019, aes(x = "", y = Percentage, fill = reorder(State, -Total_Sales))) +
+  # Use bars to create the pie chart slices
+  geom_bar(stat = "identity", width = 1) +
+  
+  # Add percentage labels to each slice
+  geom_text(
+    aes(label = sprintf("%.2f%%", Percentage)), # Format the labels with two decimal places
+    position = position_stack(vjust = 0.5), # Center the labels in the slices
+    size = 2.3 # Set the size of the text
+  ) +
+  
+  # Convert the bar chart to a polar coordinate system for the pie chart
+  coord_polar(theta = "y") +
+  
+  # Apply a minimal theme for a clean look
+  theme_minimal() +
+  
+  # Set the title and legend label
+  labs(
+    title = "2019 Percentage Share of Sales by State",
+    fill = "State"
+  ) +
+  
+  # Remove axes and grid lines, then customize the plot title
+  theme_void() + # Remove axes and gridlines
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold") # Center and bold the plot title
+  )
+
+# Print the result
+print(plot_PieSales)
+
+```
+
+***Sales by City***
+
+```{r}
+# Create a new column "Month_Year" by combining "Month" and "Year" with proper formatting
+combined_sales <- combined_sales %>%
+  filter(Year %in% c(2019))%>%
+  mutate(Month_Year = paste(month(ymd(paste(Year, Month, "01")), label = TRUE, abbr = FALSE), Year, sep = " - "))
+
+# Convert "Month_Year" to a date format
+combined_sales <- combined_sales %>%
+  mutate(Month_Year = as.Date(paste("01", Month_Year), format = "%d %B - %Y"))
+
+# Group sales by City and Month_Year, and calculate the total sales for each combination
+city_month_year_sales <- combined_sales %>%
+  group_by(City, Month_Year) %>%
+  summarise(Total_Sales = sum(Total.Price))
+
+# Arrange the data by Month_Year in ascending order
+city_month_year_sales <- city_month_year_sales %>%
+  arrange(Month_Year)
+
+# Convert the Month_Year column back to character format in "January-2019" format
+city_month_year_sales <- city_month_year_sales %>%
+  mutate(Month_Year = format(Month_Year, format = "%B-%Y"))
+
+# Print the result
+print(city_month_year_sales)
+```
+
+```{r}
+
+# Plot the 2019 sales trend by city
+plot_SalesCityTrend <- ggplot(city_month_year_sales, aes(x = as.Date(paste0("01-", Month_Year), format = "%d-%B-%Y"), y = Total_Sales, color = City)) +
+  # Add lines and points for the time series data
+  geom_line(size = 0.4) +
+  geom_point(size = 1) +
+  
+  # Set the titles and labels for the chart
+  labs(
+    title = "2019 Sales Trend by City",
+    x = "Month",
+    y = "Total Sales",
+    color = "City"
+  ) +
+  
+  # Format the x-axis as dates with custom breaks and labels
+  scale_x_date(
+    date_labels = "%Y-%B", 
+    date_breaks = "1 month"
+  ) +
+  
+  # Format the y-axis with commas for thousands, custom expansion, limits, and breaks
+  scale_y_continuous(
+    labels = comma, 
+    expand = expansion(mult = c(0.05, 0.1)), 
+    limits = c(0, 1150000),  
+    breaks = seq(0, 1150000, by = 100000)
+  ) +
+  
+  # Apply a minimal theme for aesthetics
+  theme_minimal() +
+  
+  # Customize legend and axis text for readability, and center the title
+  theme(
+    legend.position = "top",
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1), 
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+# Print the result
+print(plot_SalesCityTrend)
+
+
+```
+
+
+```{r}
+#Group total sales by city
+total_sales_by_city <- combined_sales %>%
+  group_by(City) %>%
+  summarize(TotalSales = sum(Total.Price)) %>%
+  arrange(desc(TotalSales))
+
+# Check dataframe
+total_sales_by_city
+```
+
+
+```{r}
+# Create the bar chart visualizing total sales per city
+plot_BarSalesperCity <- ggplot(total_sales_by_city, aes(x = TotalSales, y = reorder(City, +TotalSales), label = scales::comma(TotalSales), fill = City)) +
+  # Create horizontal bars by specifying stat = "identity" for the bar geometry
+  geom_bar(stat = "identity") +
+  
+  # Add labels on the bars to show the total sales value
+  geom_text(
+    aes(x = TotalSales + 100000),  # Offset the labels to the right of the bars for clarity
+    size = 2.7,  # Set the size of the text
+    vjust = -0.5  # Adjust vertical position to be above the bar
+  ) +
+  
+  # Define the labels and title for the plot
+  labs(
+    title = "Total Sales per City", 
+    x = "Total Sales", 
+    y = "City"
+  ) +
+  
+  # Format the x-axis to include labels with commas for thousands and provide a bit of space around the bars
+  scale_x_continuous(
+    labels = comma,  # Use the comma formatter for readability
+    expand = c(0.1, 0.1)  # Expand the limits of the x-axis to give some space around the data
+  ) +
+  
+  # Use a minimal theme for a clean look and adjust the title and axis text
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(angle = 0, hjust = 0.5),  # Adjust the y-axis labels for readability
+    plot.title = element_text(hjust = 0.5)  # Center the plot title
+  )
+
+# Print the result
+print(plot_BarSalesperCity)
+
+```
+
+***Monthly order trend vs monthly average order***
+
+```{r}
+#group orders by month and calculate total unique count
+monthly_order_2019 <- combined_sales %>%
+  filter(Year %in% c(2019)) %>%
+  group_by(Month_Year = format(Date, "%Y-%B")) %>%
+  summarize(Total_Order = n_distinct(Order.ID)) %>%
+  arrange(as.Date(paste0("01-", Month_Year), format = "%d-%Y-%B"))
+
+# Calculate the monthly moving average order over a window of 3 months starting from March
+monthly_order_2019 <- monthly_order_2019 %>%
+  mutate(MonthMovingAverage = zoo::rollmean(Total_Order, k = 3, align = "right", fill = NA))
+
+# Check the resulting data frame
+monthly_order_2019
+```
+
+```{r}
+# Compute average monthly sales
+average_monthly_orders <- mean(monthly_order_2019$Total_Order)
+
+#check result
+average_monthly_orders
+```
+
+```{r}
+
+# Plotting the trend of monthly orders in 2019
+plot_OrderTrend <- ggplot(monthly_order_2019, aes(x = as.Date(paste0("01-", Month_Year), format = "%d-%Y-%B"), y = Total_Order)) +
+  
+  # Add line geometry for monthly orders
+  geom_line(aes(color = "Monthly Orders"), size = 1, linetype = "solid") +
+  
+  # Add points to the line graph for each data point
+  geom_point(size = 1.5, color = "blue") +
+  
+  # Add a second line geometry for the moving average
+  geom_line(aes(x = as.Date(paste0("01-", Month_Year), format = "%d-%Y-%B"), y = MonthMovingAverage, color = "Moving Average"), size = 0.5, linetype = "solid") +
+  
+  # Add a horizontal line indicating the average monthly orders
+  geom_hline(yintercept = average_monthly_orders, linetype = "dashed", color = "red", size = 0.5) +
+  
+  # Add a text label for the average monthly orders
+  geom_text(aes(x = as.Date(paste0("01-", Month_Year[3]), format = "%d-%Y-%B"), y = average_monthly_orders, label = "Average Monthly Orders"), hjust = 1.2, vjust = -1, size = 2, color = "red")+
+  
+  # Set titles and labels for the plot
+  labs(
+    title = "2019 Monthly Orders vs. Average Monthly Orders",
+    x = "Month",
+    y = "Total Orders",
+    color = "Legend"
+  ) +
+  
+  # Set custom colors for the lines in the plot
+  scale_color_manual(values = c("Monthly Orders" = "blue", "Moving Average" = "magenta")) +
+  
+  # Add a caption with the average monthly orders
+  labs(caption = paste("Monthly Avg Orders:", comma(average_monthly_orders))) +
+  
+  # Apply the minimal theme for a clean look
+  theme_minimal() +
+  
+  # Configure the y-axis with appropriate breaks and labels
+  scale_y_continuous(
+    breaks = seq(0, 30000, by = 5000),
+    labels = comma,
+    limits = c(0, 30000)
+  ) +
+  
+  # Configure the x-axis to display dates in a "Year-Month" format
+  scale_x_date(
+    date_labels = "%Y-%B",
+    date_breaks = "1 month"
+  ) +
+  
+  # Customize the plot theme, including the title, axis text, and legend positioning
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold"),
+    legend.position = "top"
+  )
+
+#print the result
+print(plot_OrderTrend)
+
+```
+
+
+***Daily order trend vs daily average order***
+
+
+```{r}
+# Group sales by Date and count the number of Order.ID entries for each combination
+
+order_daily <- combined_sales %>%
+  group_by(Date) %>%
+  summarise(Total_Order = n_distinct(Order.ID))
+
+order_daily
+```
+```{r}
+
+# Create a line graph to visualize daily order trends
+plot_DailyTrend <- ggplot(order_daily, aes(x = Date)) + 
+  geom_line(aes(y = Total_Order, color = "Total Orders"), size = 0.5) + 
+  
+  # Add labels and titles to the graph
+  labs(
+    title = "Daily Order Trend",
+    x = "Date",
+    y = "Count of Orders",
+    color = "Legend"
+  ) +
+  
+  # Set the color of the line manually
+  scale_color_manual(values = c("Total Orders" = "blue")) +
+  
+  # Apply a minimalistic theme
+  theme_minimal() +
+  
+  # Customize the theme for title, legend, and x-axis text
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    legend.position = "top", # Place the legend on top of the plot
+    axis.text.x = element_text(angle = 45, hjust = 1) # Angle the date labels for clarity
+  ) +
+  
+  # Configure the x-axis to handle date data appropriately
+  scale_x_date(date_labels = "%b %d, %Y", date_breaks = "1 month") 
+
+# Print the result 
+print(plot_DailyTrend)
+
+
+```
+
+```{r}
+#Average Daily Order per Month in 2019
+
+# Group by Year and Month, then calculate the average order count per month
+average_order_count_per_month <- order_daily %>%
+  group_by(Month_Year = format(Date, "%Y-%B")) %>%
+  summarise(AverageOrders = round(mean(Total_Order), 2))%>%
+  arrange(as.Date(paste0("01-", Month_Year), format = "%d-%Y-%B"))
+
+average_order_count_per_month
+```
+
+```{r}
+
+# Plot the average daily order monthly trend for 2019
+plot_DailyOrderMonthlyTrend <- ggplot(average_order_count_per_month, 
+                                      aes(x = as.Date(paste0("01-", Month_Year), format = "%d-%Y-%B"), 
+                                          y = AverageOrders)) +
+  geom_line(aes(color = "2019 Average Daily Order per Month"), 
+            size = 1, 
+            linetype = "solid") +  # Add a line to represent the data
+  geom_point(size = 1.5, color = "blue") +  # Add points for each data value
+  
+  # Add labels and title to the graph with appropriate text size and boldness
+  labs(title = "2019 Average Daily Orders per Month",
+       x = "Month",
+       y = "Orders",
+       color = "Legend") +
+  
+  # Manually set the color for the line in the legend
+  scale_color_manual(values = c("2019 Average Daily Order per Month" = "blue")) +
+  
+  # Apply a minimalistic theme for a clean look
+  theme_minimal() +
+  
+  # Set the y-axis breaks, labels, and limits for better data visualization
+  scale_y_continuous(breaks = seq(0, 900, by = 100), 
+                     labels = comma, 
+                     limits = c(0, 900)) +
+  
+  # Configure the x-axis to handle date data with custom breaks and labels
+  scale_x_date(date_labels = "%Y-%B", 
+               date_breaks = "1 month") +
+  
+  # Customize theme settings for axis text and plot title
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1), 
+        plot.title = element_text(hjust = 0.5, size = 12, face = "bold"),
+        legend.position = "top")  # Position the legend at the top
+
+# Print the result to display the plot
+print(plot_DailyOrderMonthlyTrend)
+
+
+```
+
+***Day of Week Order Count***
+
+```{r}
+# Filter the data for the year 2019
+daily_order_counts <- combined_sales %>%
+  filter(Year == 2019) %>%
+  group_by(DayOfWeek, Month, Year) %>%
+  summarize(Total_Order = n_distinct(Order.ID))
+
+# Define custom orders for DayOfWeek, Month, and Year
+custom_day_order <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+custom_month_order <- c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+
+# Convert 'DayOfWeek' to a factor with custom levels
+daily_order_counts$DayOfWeek <- factor(daily_order_counts$DayOfWeek, levels = custom_day_order)
+
+# Convert 'Month' to a factor with custom levels
+daily_order_counts$Month <- factor(daily_order_counts$Month, levels = custom_month_order)
+
+# Arrange the data first by Month and then by DayOfWeek
+daily_order_counts <- daily_order_counts %>%
+  arrange(Month, DayOfWeek)
+
+# Check the data frame
+print(daily_order_counts)
+
+```
+
+```{r}
+# Create a bar plot of Order Count per Day of Week for each month of 2019
+plot_OrderCount_Day <- ggplot(daily_order_counts, aes(x = DayOfWeek, y = Total_Order, fill = DayOfWeek)) +
+  geom_bar(stat = "identity") +  # Use identity stat for pre-summarized data
+  labs(
+    title = "Order Count by Day of Week for 2019", 
+    x = "Day of Week",
+    y = "Order Count"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),  # Adjust vjust for better alignment
+    plot.title = element_text(hjust = 0.5, face = 'bold')
+  ) +
+  facet_wrap(~Month, scales = "fixed")  # Facet by month with fixed scales
+
+# Print the result
+plot_OrderCount_Day
+
+
+```
+
+```{r}
+#Total Day of Week Order Count for 2019
+
+# Filter the data for the year 2019
+daily_order_count_whole <- combined_sales %>%
+  filter(Year == 2019) %>%
+  group_by(DayOfWeek) %>%
+  summarize(Total_Order = n_distinct(Order.ID))
+
+# Define custom orders for DayOfWeek, Month, and Year
+custom_day_order <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+# Convert 'DayOfWeek' to a factor with custom levels
+daily_order_count_whole$DayOfWeek <- factor(daily_order_count_whole$DayOfWeek, levels = custom_day_order)
+
+# Arrange the data first by Month and then by DayOfWeek
+daily_order_count_whole <- daily_order_count_whole %>%
+  arrange(DayOfWeek)
+
+daily_order_count_whole
+```
+
+```{r}
+
+# Create the bar plot for 2019 total order counts by day of the week
+plot_TotalOrders_ByDay <- ggplot(daily_order_count_whole, aes(x = DayOfWeek, y = Total_Order, fill = DayOfWeek)) +
+  geom_bar(stat = "identity") +  # Create bars with heights equal to Total_Order
+  geom_text(aes(label = Total_Order), vjust = -0.5, size = 2.7) + 
+  labs(
+    title = "2019 Total Order Counts by Day of Week", 
+    x = "Day of Week",
+    y = "Order Count"
+  ) +
+  theme_minimal() +  # Use the minimal theme
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    plot.title = element_text(hjust = 0.5, face = 'bold') 
+  ) +
+  scale_y_continuous(limits = c(0, 35000))  
+
+# Display the plot
+plot_TotalOrders_ByDay
+
+
+```
+
+***Hourly order trend vs hourly average order***
+
+```{r}
+# calculate order volume trend
+order_volume_trend <- combined_sales %>%
+  filter(Year == 2019) %>%
+  group_by(Hour) %>%
+  summarize(Total_Order = n_distinct(Order.ID)) %>%
+  mutate(Hour = sub(":00$", "", Hour))
+
+
+# Calculate the average hourly OrderCount
+average_order_count <- mean(order_volume_trend$Total_Order)
+
+```
+
+```{r}
+# Create the hourly trend plot
+plot_HourlyTrend <- ggplot(order_volume_trend, aes(x = Hour, y = Total_Order)) +
+  geom_bar(stat = "identity", fill = "blue") +  
+  labs(
+    title = "Hourly Order Volume",
+    x = "Hour",
+    y = "Order Count"
+  ) +
+  theme_minimal() +  # Use a minimalistic theme
+  geom_hline(
+    yintercept = average_order_count, 
+    linetype = "dashed", 
+    color = "red"
+  ) +  # Add a dashed horizontal line for the average order count
+  geom_text(
+    aes(x = 0, y = average_order_count, label = "Average Hourly Order Count"), 
+    vjust = -1, 
+    hjust = 0, 
+    color = "red", 
+    size = 3
+  ) +  # Add a text label for the average order count
+  labs(
+    caption = paste("2019 Average Hourly Order:", scales::comma(average_order_count))
+  ) +  
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold")  # Center the plot title and make it bold
+  ) +
+  scale_y_continuous(
+    breaks = seq(0, 14000, by = 2000),  
+    labels = scales::comma, 
+    limits = c(0, 13000)  
+  )
+
+# Print the result
+plot_HourlyTrend
+
+
+```
+
+
+```{r, echo=FALSE}
+
+#We will use linear regression to predict the total sales with hour, day of week, and month.
+
+combined_sales$DayOfWeek <- factor(combined_sales$DayOfWeek)
+combined_sales$Day <- factor(combined_sales$Day)
+combined_sales$Month <- factor(combined_sales$Month)
+combined_sales$City <- factor(combined_sales$City)
+combined_sales$State <- factor(combined_sales$State)
+
+#group the data by month
+combined_sales <- combined_sales %>%
+  group_by(Month) %>%
+  mutate(total_sales = sum(Total.Price)) 
+
+
+# Perform one-hot encoding using model.matrix
+City_encoded <- as.data.frame(model.matrix(~ City - 1, data = combined_sales))
+
+# Rename the columns to remove the intercept term
+colnames(City_encoded) <- sub("^City", "", colnames(City_encoded))
+
+# Combine the encoded data frame with the original data frame
+combined_sales_final <- cbind(combined_sales, City_encoded)
+
+# Define the columns to drop
+columns_to_drop <- c(1:10)
+# Remove the specified columns
+combined_sales_final_2 <- combined_sales_final[,-columns_to_drop]
+combined_sales_final_2 <- combined_sales_final_2[,-4]
+
+# Define a mapping from State to numbers
+State_mapping <- c(
+  "New York" =1,                         
+  "California"=2,
+  "Texas"=3, 
+  "Georgia"=4,
+  "Massachusetts"=5,
+  "Washington"=6,"Oregon"=7, "Maine"=8) 
+# Apply the mapping to the "Num_City" column
+combined_sales_final_2$Num_State <- State_mapping[combined_sales_final_2$State]
+
+# Define a mapping from City to numbers
+City_mapping <- c(
+  "New York City" =1,
+  "San Francisco"=2,
+  "Dallas"=3, 
+  "Atlanta"=4,
+  "Boston"=5,
+  "Seattle"=6,"Los Angeles"=7, "PortlandO"=8, "Austin"=9, "PortlandM"=10) 
+# Apply the mapping to the "Num_City" column
+combined_sales_final_2$Num_City <- City_mapping[combined_sales_final_2$City]
+
+# Define a mapping from days of the week to numbers
+day_of_week_mapping <- c(
+  "Monday" = 1,
+  "Tuesday" = 2,
+  "Wednesday" = 3,
+  "Thursday" = 4,
+  "Friday" = 5,
+  "Saturday" = 6,
+  "Sunday" = 7
+)
+
+# Apply the mapping to the "DayOfWeek" column
+combined_sales_final_2$WeekDay <- day_of_week_mapping[combined_sales_final_2$DayOfWeek]
+
+#Build the model
+#Data splicing 70% and 30%
+#Set a seed for reproducibility
+set.seed(123)
+training_proportion <- 0.7
+
+# Calculate the number of rows for the training set
+num_rows <- nrow(combined_sales)
+num_train_rows <- round(training_proportion * num_rows)
+
+# Create a vector of random indices for the training set
+train_indices <- sample(1:num_rows, num_train_rows)
+
+# Create the training and testing sets using the random indices
+# Use all columns, including encoded City, Month, and DayOfWeek
+trainingset <- combined_sales_final_2[train_indices, ] 
+testset <- combined_sales_final_2[-train_indices, ]
+
+# create a linear regression model, trained with the training data set
+model_lm <- lm(total_sales ~ Num_City+Day+WeekDay, data = trainingset)
+# make predictions using the test data set.
+predict_lm <- predict(model_lm, testset)
+
+# create new data frame combining columns we need  
+predict <- data.frame(TotalSales_Pred = predict_lm, TotalSales = testset$total_sales, WeekDay = testset$DayOfWeek, City = testset$City, State = testset$State)
+
+summary(model_lm)
+
+```
+
+
+
+```{r}
+# Load necessary libraries
+library(ggpubr)
+
+# Residual plot
+residuals <- predict$TotalSales_Pred - predict$TotalSales
+ggplot(data = data.frame(Residuals = residuals), aes(x = Residuals)) +
+  geom_histogram(binwidth = 50, fill = "blue", color = "black") +
+  labs(title = "Linear Regression Residual Plot", subtitle = "lm(total_sales ~ Num_City+Day+WeekDay)", x = "Residuals", y = "Frequency")
+```
+
+```{r}
+# Scatter plot of actual vs. predicted values
+# the red line representing the line of perfect predictions (y = x).
+ggplot(data = predict, aes(x = TotalSales_Pred, y = TotalSales)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  labs(title = "Linear Regression Actual vs. Predicted Values", subtitle = "lm(total_sales ~ Num_City+Day+WeekDay)", x = "Predicted Total Sales", y = "Actual Total Sales")
+```
+
+```{r}
+# Calculate and print model evaluation metrics
+mae <- mean(abs(residuals))
+rmse <- sqrt(mean(residuals^2))
+r_squared <- 1 - sum(residuals^2) / sum((testset$total_sales - mean(testset$total_sales))^2)
+
+cat("Root Mean Squared Error (RMSE) for linear regression:", rmse, "\n")
+```
+
+```{r}
+cat("R-squared (R2) for linear regression:", r_squared, "\n")
+```
+
+```{r}
+# decision tree model: Use rpart to create a, trained with the training data set
+library(rpart)
+model_rpart  <- rpart(total_sales ~ Num_City+Day+WeekDay, data = trainingset)
+```
+
+```{r}
+predict_rpart  <- predict(model_rpart, testset)
+
+# create new data frame combining columns we need  
+predict_rpart <- data.frame(TotalSales_Pred = predict_rpart, TotalSales = testset$total_sales, Month = testset$Month, WeekDay = testset$WeekDay)
+summary(model_rpart)
+```
+
+```{r}
+# Residual plot
+residuals_rpart <- predict_rpart$TotalSales_Pred - predict_rpart$TotalSales
+ggplot(data = data.frame(Residuals_rpart = residuals_rpart), aes(x = Residuals_rpart)) +
+  geom_histogram(binwidth = 50, fill = "blue", color = "black") +
+  labs(title = "Decision Tree Residual Plot",subtitle = "rpart(total_sales ~ Num_City+Day+WeekDay)", x = "Residuals", y = "Frequency")
+```
+
+
+```{r}
+# Scatter plot of actual vs. predicted values
+# the red line representing the line of perfect predictions (y = x).
+ggplot(data = predict_rpart, aes(x = TotalSales_Pred, y = TotalSales)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  labs(title = "Decision Tree Actual vs. Predicted Values",subtitle = "rpart(total_sales ~ Num_City+Day+WeekDay)", x = "Predicted Total Price", y = "Actual Total Price")
+```
+
+```{r}
+# Calculate and print model evaluation metrics
+rmse_rpart <- sqrt(mean(residuals_rpart^2))
+r_squared_rpart <- 1 - sum(residuals_rpart^2) / sum((testset$total_sales - mean(testset$total_sales))^2)
+
+cat("Root Mean Squared Error (RMSE) for Decision Tree model:", rmse_rpart, "\n")
+```
+
+```{r}
+cat("R-squared (R2)for Decision Tree model:", r_squared_rpart, "\n")
+```
+
